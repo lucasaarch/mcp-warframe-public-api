@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import LZMA from "lzma";
+import WebSocket from "ws";
 
 const UA = "mcp-warframe-public-api/0.1";
 const STATS = "https://api.warframestat.us";
@@ -313,13 +314,33 @@ tool(
   { orderId: z.string(), quantity: z.number().int().min(1).default(1) },
   ({ orderId, quantity }) => account("POST", `/order/${oid(orderId)}/close`, { quantity }),
 );
+// Presence is websocket-only in v2: the status lasts while the socket is open, so keep it for the life of the MCP process.
+let ws = null;
+const wsSend = (route, payload) => ws.send(JSON.stringify({ route, payload, id: Math.random().toString(36).slice(2, 10) }));
+async function wsConnect() {
+  if (ws?.readyState === 1) return;
+  if (!token) await login();
+  ws = new WebSocket("wss://ws.warframe.market/socket", "wfm", { headers: { "User-Agent": UA } });
+  ws.on("message", () => {});
+  await new Promise((ok, no) => {
+    ws.once("open", ok);
+    ws.once("error", no);
+  });
+  wsSend("@wfm|cmd/auth/signIn", { token });
+  await new Promise((r) => setTimeout(r, 800));
+}
 tool(
   "market_set_status",
-  "Set YOUR warframe.market presence: online, ingame or invisible.",
-  { status: z.enum(["online", "ingame", "invisible"]) },
-  ({ status }) => account("PATCH", "/me", { status }),
+  "Set YOUR warframe.market presence: online, ingame or invisible (websocket; lasts while this MCP process runs). Optional duration in seconds.",
+  { status: z.enum(["online", "ingame", "invisible"]), duration: z.number().int().positive().optional() },
+  async ({ status, duration }) => {
+    await wsConnect();
+    wsSend("@wfm|cmd/status/set", { status, ...(duration ? { duration } : {}) });
+    await new Promise((r) => setTimeout(r, 800));
+    const me = await account("GET", "/me");
+    return { requested: status, lastSeen: me?.data?.lastSeen ?? me?.lastSeen, note: "Confirm on the site." };
+  },
 );
-
 
 // --- more warframe.market coverage ---
 const V1 = "https://api.warframe.market/v1";
