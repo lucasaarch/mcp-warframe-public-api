@@ -50,3 +50,7 @@ Set env in the MCP config (never commit credentials): `WFM_TOKEN` (JWT) or `WFM_
 ```
 
 Tools: `market_my_orders`, `market_create_order`, `market_update_order`, `market_delete_order`, `market_close_order`, `market_set_status`. They change the real account. Auth uses the v1 sign-in (the official docs say OAuth is not public yet); not tested with a real account.
+
+## More warframe.market tools (v0.3)
+
+`market_me`, `market_update_profile`, `market_get_order`, `market_recent_orders`, `market_item_orders`, `market_item_set`, `market_item_statistics`, `market_user`, `market_user_orders`, `market_riven_weapons`, `market_riven_weapon`, `market_riven_attributes`, and `market_api` (escape hatch: any endpoint with your auth).

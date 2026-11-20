@@ -320,4 +320,40 @@ tool(
   ({ status }) => account("PATCH", "/me", { status }),
 );
 
+
+// --- more warframe.market coverage ---
+const V1 = "https://api.warframe.market/v1";
+const slugZ = z.string().describe("Slug (lowercase, underscores)");
+tool("market_me", "YOUR warframe.market profile (status, platform, reputation, settings).", {}, () => account("GET", "/me"));
+tool(
+  "market_update_profile",
+  "Update YOUR profile fields (about, status, platform, crossplay, etc). Pass only fields to change; they are sent as-is to PATCH /me. Changes the real account.",
+  { fields: z.record(z.any()).describe("e.g. {\"about\":\"...\",\"status\":\"online\",\"crossplay\":true}") },
+  ({ fields }) => account("PATCH", "/me", fields),
+);
+tool("market_get_order", "One order by id.", { orderId: z.string() }, ({ orderId }) => account("GET", `/order/${oid(orderId)}`));
+tool("market_recent_orders", "Most recent public orders on warframe.market.", {}, () => json(`${MARKET}/orders/recent`));
+tool("market_item_orders", "ALL public orders for an item (not just top).", { slug: slugZ }, ({ slug }) =>
+  json(`${MARKET}/orders/item/${encodeURIComponent(slug)}`),
+);
+tool("market_item_set", "Parts of a set item (e.g. a Prime set) on warframe.market.", { slug: slugZ }, ({ slug }) =>
+  json(`${MARKET}/item/${encodeURIComponent(slug)}/set`),
+);
+tool("market_item_statistics", "Price history/statistics of an item (v1: 48h and 90d closed trades).", { slug: slugZ }, ({ slug }) =>
+  json(`${V1}/items/${encodeURIComponent(slug)}/statistics`),
+);
+tool("market_user", "Public profile of a user by slug.", { slug: slugZ }, ({ slug }) => json(`${MARKET}/user/${encodeURIComponent(slug)}`));
+tool("market_user_orders", "Public orders of a user by slug.", { slug: slugZ }, ({ slug }) =>
+  json(`${MARKET}/orders/user/${encodeURIComponent(slug)}`),
+);
+tool("market_riven_weapons", "Riven-capable weapons on warframe.market.", {}, () => json(`${MARKET}/riven/weapons`));
+tool("market_riven_weapon", "One riven weapon by slug.", { slug: slugZ }, ({ slug }) => json(`${MARKET}/riven/weapon/${encodeURIComponent(slug)}`));
+tool("market_riven_attributes", "Riven attributes (stats) list.", {}, () => json(`${MARKET}/riven/attributes`));
+tool(
+  "market_api",
+  "Escape hatch: call any warframe.market endpoint with your account auth. Use for anything without a dedicated tool. path starts with / (v2 by default; set v1 true for v1). Writes change the real account.",
+  { method: z.enum(["GET", "POST", "PATCH", "PUT", "DELETE"]), path: z.string().startsWith("/"), body: z.any().optional(), v1: z.boolean().default(false) },
+  ({ method, path, body, v1 }) => account(method, v1 ? `/../v1${path}` : path, body),
+);
+
 await server.connect(new StdioServerTransport());
