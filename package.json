@@ -1,6 +1,6 @@
 {
   "name": "mcp-warframe-public-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server (stdio) for Warframe public APIs: DE Public Export, warframestat.us and warframe.market",
   "scripts": {
     "test": "node smoke.mjs",
