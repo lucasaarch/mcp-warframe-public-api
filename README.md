@@ -8,17 +8,18 @@ MCP server (stdio) for Warframe's public APIs:
 
 No API keys needed. Node 20+.
 
-## Use
-
-```bash
-npm install
-npm start
-```
-
-MCP client config:
+## Use (npx)
 
 ```json
-{ "mcpServers": { "warframe": { "command": "node", "args": ["/path/to/server.mjs"] } } }
+{ "mcpServers": { "warframe": { "command": "npx", "args": ["-y", "mcp-warframe-public-api"] } } }
+```
+
+Dev: `npm install && npm start`.
+
+## Publish
+
+```bash
+npm login && npm publish
 ```
 
 `npm test` runs a smoke test against the real APIs.

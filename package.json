@@ -1,14 +1,18 @@
 {
   "name": "mcp-warframe-public-api",
   "version": "0.1.0",
-  "description": "MCP server for Warframe public APIs",
-  "main": "index.js",
+  "description": "MCP server (stdio) for Warframe public APIs: DE Public Export, warframestat.us and warframe.market",
   "scripts": {
     "test": "node smoke.mjs",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "prepublishOnly": "node smoke.mjs"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "mcp",
+    "warframe",
+    "model-context-protocol"
+  ],
+  "author": "Lucas Arch",
   "license": "MIT",
   "type": "module",
   "dependencies": {
@@ -18,5 +22,19 @@
   },
   "bin": {
     "mcp-warframe-public-api": "server.mjs"
+  },
+  "files": [
+    "server.mjs"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lucasaarch/mcp-warframe-public-api.git"
+  },
+  "homepage": "https://github.com/lucasaarch/mcp-warframe-public-api#readme",
+  "publishConfig": {
+    "access": "public"
   }
 }
