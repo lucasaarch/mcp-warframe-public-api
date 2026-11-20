@@ -54,3 +54,7 @@ Tools: `market_my_orders`, `market_create_order`, `market_update_order`, `market
 ## More warframe.market tools (v0.3)
 
 `market_me`, `market_update_profile`, `market_get_order`, `market_recent_orders`, `market_item_orders`, `market_item_set`, `market_item_statistics`, `market_user`, `market_user_orders`, `market_riven_weapons`, `market_riven_weapon`, `market_riven_attributes`, and `market_api` (escape hatch: any endpoint with your auth).
+
+## inventory (v0.4)
+
+`inventory` reads your Warframe account inventory (read-only) via the unofficial game API. Env: `WF_EMAIL`, `WF_PASSWORD` (never commit). Logs in once and logs out; refuses if the game is open. Unofficial: use at your own risk.

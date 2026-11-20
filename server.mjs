@@ -51,7 +51,7 @@ async function exportFile(name) {
   return exportCache.get(entry);
 }
 
-const server = new McpServer({ name: "mcp-warframe-public-api", version: "0.2.0" });
+const server = new McpServer({ name: "mcp-warframe-public-api", version: "0.4.0" });
 const tool = (name, description, shape, fn) => server.tool(name, description, shape, wrap(fn));
 
 // --- DE Public Export ---
@@ -377,4 +377,66 @@ tool(
   ({ method, path, body, v1 }) => account(method, v1 ? `/../v1${path}` : path, body),
 );
 
+
+// --- Warframe account inventory (unofficial game API; read-only). Credentials only from env: WF_EMAIL + WF_PASSWORD. ---
+// One login per call, no retries (DE rate-limits hard). No `kick`: if the game is open the login is refused instead of logging the game out.
+import wp from "whirlpool-hash";
+const WF_API = "https://api.warframe.com/api";
+const NAME_FILES = ["ExportUpgrades", "ExportRecipes", "ExportResources", "ExportRelicArcane", "ExportWarframes", "ExportWeapons", "ExportGear", "ExportSentinels", "ExportCustoms"];
+let nameMap;
+async function names() {
+  if (!nameMap) {
+    nameMap = new Map();
+    for (const f of NAME_FILES) {
+      try {
+        for (const list of Object.values(await exportFile(f)))
+          if (Array.isArray(list)) for (const e of list) if (e.uniqueName && e.name) nameMap.set(e.uniqueName, e.name);
+      } catch {}
+    }
+  }
+  return nameMap;
+}
+async function wfInventory() {
+  const email = process.env.WF_EMAIL, password = process.env.WF_PASSWORD;
+  if (!email || !password) throw new Error("Set WF_EMAIL and WF_PASSWORD in the MCP server env.");
+  const hash = Buffer.from(new wp.Whirlpool().getHash(password), "latin1").toString("hex");
+  const lr = await fetch(`${WF_API}/login.php`, {
+    method: "POST",
+    headers: { "User-Agent": "Warframe", "Content-Type": "application/octet-stream" },
+    body: JSON.stringify({ email, password: hash, time: Math.floor(Date.now() / 1000), s: "", lang: "en", date: 0, ClientType: "" }),
+  });
+  const text = await lr.text();
+  if (!lr.ok) throw new Error(`Warframe login refused (${lr.status}): ${text.slice(0, 120).replace(email, "<email>")}`);
+  let login;
+  try { login = JSON.parse(text); } catch { throw new Error("Warframe login returned non-JSON."); }
+  const q = `accountId=${login.id}&nonce=${login.Nonce}`;
+  try {
+    const ir = await fetch(`${WF_API}/inventory.php?${q}`, { headers: { "User-Agent": "Warframe" } });
+    if (!ir.ok) throw new Error(`inventory.php answered ${ir.status}`);
+    return await ir.json();
+  } finally {
+    await fetch(`${WF_API}/logout.php?${q}`, { headers: { "User-Agent": "Warframe" } }).catch(() => {});
+  }
+}
+tool(
+  "inventory",
+  "Read-only snapshot of YOUR Warframe inventory (needs WF_EMAIL/WF_PASSWORD env). Logs in once and logs out; fails if the game is open. section: summary (counts + credits/platinum), mods, relics, resources, blueprints, equipment. Names resolved via Public Export.",
+  { section: z.enum(["summary", "mods", "relics", "resources", "blueprints", "equipment"]).default("summary"), limit: z.number().int().min(1).max(500).default(100) },
+  async ({ section, limit }) => {
+    const inv = await wfInventory();
+    const nm = await names();
+    const named = (arr = []) => arr.map((x) => ({ name: nm.get(x.ItemType) ?? x.ItemType, count: x.ItemCount ?? 1 }));
+    const equip = ["Suits", "LongGuns", "Pistols", "Melee", "SpaceSuits", "Sentinels", "SentinelWeapons", "OperatorAmps"];
+    if (section === "summary")
+      return {
+        platinum: inv.PremiumCredits, credits: inv.RegularCredits, tradesRemaining: inv.TradesRemaining,
+        counts: { rawMods: inv.RawUpgrades?.length, rankedMods: inv.Upgrades?.length, miscItems: inv.MiscItems?.length, blueprints: inv.Recipes?.length, ...Object.fromEntries(equip.map((k) => [k, inv[k]?.length ?? 0])) },
+      };
+    if (section === "mods") return named(inv.RawUpgrades).sort((a, b) => b.count - a.count).slice(0, limit);
+    if (section === "blueprints") return named(inv.Recipes).slice(0, limit);
+    if (section === "relics") return named(inv.MiscItems?.filter((x) => /Projection/.test(x.ItemType))).slice(0, limit);
+    if (section === "resources") return named(inv.MiscItems?.filter((x) => !/Projection/.test(x.ItemType))).slice(0, limit);
+    return equip.flatMap((k) => (inv[k] ?? []).map((x) => ({ kind: k, name: nm.get(x.ItemType) ?? x.ItemType, xp: x.XP }))).slice(0, limit);
+  },
+);
 await server.connect(new StdioServerTransport());
